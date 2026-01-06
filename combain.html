@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Intelligence Hub</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- UNIFIED CSS --- */
+        :root {
+            --bg-body: #f8fafc;
+            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            --card-bg: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-tertiary: #94a3b8;
+            --primary: #4f46e5;
+            --primary-light: #e0e7ff;
+            --success: #10b981;
+            --success-bg: #ecfdf5;
+            --danger: #ef4444;
+            --danger-bg: #fef2f2;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            --shadow-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding-bottom: 60px;
+        }
+
+        /* --- VIEW CONTAINERS --- */
+        #dashboardView { display: block; animation: fadeIn 0.5s ease; }
+        #detailView { display: none; animation: slideUp 0.4s ease; padding: 20px; justify-content: center;}
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* --- CODE 1 STYLES (DASHBOARD) --- */
+        .container { max-width: 1400px; margin: 0 auto; padding: 32px 24px; }
+
+        .header-section { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; flex-wrap: wrap; gap: 20px; }
+        .header-titles h1 { font-size: 2.25rem; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(to right, #1e293b, #4f46e5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header-titles p { color: var(--text-secondary); font-weight: 500; margin-top: 4px; }
+
+        .sync-badge { background: white; padding: 8px 16px; border-radius: 99px; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); box-shadow: var(--shadow-card); display: flex; align-items: center; gap: 8px; }
+        .pulse { width: 8px; height: 8px; background: var(--success); border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+
+        .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 32px; }
+        .stat-card { background: var(--card-bg); padding: 24px; border-radius: var(--radius-lg); box-shadow: var(--shadow-card); border: 1px solid #f1f5f9; }
+        .stat-label { font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-tertiary); margin-bottom: 8px; }
+        .stat-value { font-size: 1.8rem; font-weight: 800; color: var(--text-primary); }
+        .stat-sub { font-size: 0.85rem; margin-top: 4px; font-weight: 500; color: var(--text-secondary); }
+        .pos-text { color: var(--success); }
+        .neg-text { color: var(--danger); }
+        .highlight-text { color: var(--primary); }
+
+        .controls-wrapper { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); padding: 16px; border-radius: var(--radius-lg); border: 1px solid white; margin-bottom: 32px; display: flex; gap: 12px; flex-wrap: wrap; box-shadow: var(--shadow-card); }
+        .input-group { flex: 1; min-width: 200px; }
+        input, select { width: 100%; padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid #e2e8f0; font-family: inherit; font-size: 0.9rem; background-color: white; transition: border-color 0.2s; }
+        input:focus, select:focus { outline: none; border-color: var(--primary); }
+        
+        .btn-refresh { background: var(--text-primary); color: white; border: none; padding: 0 24px; border-radius: var(--radius-md); font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-refresh:hover { background: #000; }
+
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 24px; }
+        
+        /* Interactive Company Card */
+        .company-card { 
+            background: var(--card-bg); border-radius: var(--radius-lg); border: 1px solid #f1f5f9; box-shadow: var(--shadow-card); display: flex; flex-direction: column; transition: all 0.3s ease; overflow: hidden; cursor: pointer; position: relative;
+        }
+        .company-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); border-color: var(--primary-light); }
+        .company-card::after { content: 'Click for Analysis'; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(79, 70, 229, 0.05); opacity: 0; transition: 0.3s; pointer-events: none; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary); }
+        .company-card:hover::after { opacity: 1; }
+
+        .c-header { padding: 20px; border-bottom: 1px solid #f8fafc; display: flex; justify-content: space-between; align-items: flex-start; }
+        .c-name { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
+        .c-symbol { font-size: 0.75rem; font-weight: 800; color: var(--primary); background: var(--primary-light); padding: 4px 8px; border-radius: 6px; }
+        .c-meta { font-size: 0.75rem; color: var(--text-tertiary); margin-top: 4px; font-weight: 600; }
+        .c-body { padding: 20px; flex: 1; }
+        .price-strip { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .cmp-val { font-size: 1.25rem; font-weight: 800; color: var(--text-primary); }
+        .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px; }
+        .m-box { padding: 10px; border-radius: 10px; background: #f8fafc; border: 1px solid #f1f5f9; }
+        .m-label { font-size: 0.65rem; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; margin-bottom: 4px; }
+        .m-val { font-size: 0.95rem; font-weight: 700; }
+        .growth-pill { font-size: 0.85rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+        .pos { color: var(--success); background: var(--success-bg); }
+        .neg { color: var(--danger); background: var(--danger-bg); }
+
+        /* --- CODE 2 STYLES (DETAIL POSTER) --- */
+        .poster { background: var(--card-bg); width: 100%; max-width: 1100px; margin: 0 auto; box-shadow: var(--shadow-hover); padding: 40px; border-radius: var(--radius-lg); position: relative; display: flex; flex-direction: column; gap: 30px; }
+        
+        .back-btn {
+            position: absolute; top: 40px; right: 40px;
+            background: #f1f5f9; color: var(--text-secondary); border: none;
+            padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; gap: 8px; transition: 0.2s;
+        }
+        .back-btn:hover { background: #e2e8f0; color: var(--text-primary); }
+
+        .poster-header { border-bottom: 1px solid #e2e8f0; padding-bottom: 20px; padding-right: 100px; }
+        .poster-header h1 { font-size: 2rem; color: var(--text-primary); margin-bottom: 4px; line-height: 1.2; }
+        .meta-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+        .quarter-badge { background: #0f172a; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        .tagline { font-style: italic; color: var(--text-secondary); font-size: 1rem; margin-top: 4px; }
+
+        .section-header { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 2px solid #f1f5f9; margin-bottom: 15px; }
+        .section-header h2 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); font-weight: 700; margin: 0; }
+        .section-icon { color: var(--primary); font-size: 1rem; }
+
+        .top-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 40px; align-items: start; }
+        .table-group { display: flex; flex-direction: column; gap: 24px; }
+        .table-wrapper { width: 100%; overflow-x: auto; } 
+        .table-title { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; }
+        .metrics-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.9rem; min-width: 300px; }
+        .metrics-table th { text-align: right; color: var(--text-secondary); font-size: 0.75rem; font-weight: 600; padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
+        .metrics-table th:first-child { text-align: left; }
+        .metrics-table td { padding: 10px 0; border-bottom: 1px solid #f8fafc; text-align: right; font-variant-numeric: tabular-nums; }
+        .metrics-table td:first-child { text-align: left; font-weight: 600; color: var(--text-primary); }
+        .metrics-table td.prev-val { color: var(--text-secondary); font-size: 0.85rem; }
+
+        .badge { display: inline-flex; align-items: center; justify-content: flex-end; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; min-width: 65px; }
+        .badge.pos { background-color: var(--success-bg); color: var(--success); }
+        .badge.neg { background-color: var(--danger-bg); color: var(--danger); }
+        
+        .chart-column { display: flex; flex-direction: column; gap: 20px; }
+        .chart-container { background: #f8fafc; border-radius: var(--radius-md); padding: 20px; height: 350px; }
+        
+        .rating-box { background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%); border: 1px solid #dbeafe; border-radius: var(--radius-md); padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        .rating-box::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--primary); }
+        .rating-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-secondary); font-weight: 700; margin-bottom: 8px; }
+        .rating-value { font-size: 1rem; font-weight: 800; color: var(--primary); text-transform: uppercase; }
+
+        .mid-section-grid { display: grid; grid-template-columns: 1fr 0.8fr; gap: 40px; margin-top: 30px; }
+        .diag-list { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+        .diag-list li { position: relative; padding-left: 20px; line-height: 1.5; font-size: 0.95rem; }
+        .diag-list li::before { content: ""; position: absolute; left: 0; top: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
+
+        .sector-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 25px; margin-top: 20px; }
+        .guidance-card { padding: 24px; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 4px 10px rgba(0,0,0,0.03); height: 100%; }
+        
+        .card-tailwinds { background-color: #f0fdf4; border-left: 5px solid #16a34a; }
+        .card-tailwinds .g-title, .card-tailwinds .g-icon-box, .card-tailwinds .list-item i { color: #16a34a; }
+        
+        .card-headwinds { background-color: #fef2f2; border-left: 5px solid #dc2626; }
+        .card-headwinds .g-title, .card-headwinds .g-icon-box, .card-headwinds .list-item i { color: #dc2626; }
+        
+        .card-guidance { background-color: #fffbeb; border-left: 5px solid #d97706; width: 100%; }
+        .card-guidance .g-title, .card-guidance .g-icon-box, .card-guidance .list-item i { color: #d97706; }
+
+        .g-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,0.06); }
+        .g-icon-box { background: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .g-title { font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+        .list-item { margin-bottom: 12px; font-size: 0.95rem; line-height: 1.5; display: flex; gap: 12px; align-items: flex-start; color: var(--text-secondary); }
+        .list-item i { margin-top: 6px; font-size: 0.6rem; flex-shrink: 0; }
+
+        .poster-footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 0.75rem; color: var(--text-secondary); display: flex; justify-content: space-between; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .loading-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.9); z-index: 50; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-lg); font-weight: 600; color: var(--text-secondary); backdrop-filter: blur(2px); }
+        .hidden { display: none !important; }
+
+        @media (max-width: 1024px) {
+            .poster { padding: 30px; }
+            .top-grid { grid-template-columns: 1fr; gap: 30px; }
+            .mid-section-grid { grid-template-columns: 1fr; gap: 30px; }
+            .back-btn { position: relative; top: 0; right: 0; margin-bottom: 20px; display: inline-flex; width: auto;}
+            .poster-header { padding-right: 0; }
+        }
+        @media (max-width: 768px) {
+            .sector-grid { grid-template-columns: 1fr; }
+            .poster-footer { flex-direction: column; gap: 10px; align-items: center; }
+        }
+        
+        .skeleton { background: #eee; height: 300px; border-radius: 16px; animation: pulse 1.5s infinite ease-in-out; }
+    </style>
+</head>
+<body>
+
+<div id="dashboardView">
+    <div class="container">
+        <div class="header-section">
+            <div class="header-titles">
+                <h1>Market Intelligence</h1>
+                <p>Financial Analysis Hub • Q2FY26 Results</p>
+            </div>
+            <div class="sync-badge">
+                <div class="pulse"></div>
+                <span id="lastUpdated">Initializing...</span>
+            </div>
+        </div>
+
+        <div id="statsBar" class="stats-bar"></div>
+
+        <div class="controls-wrapper">
+            <div class="input-group">
+                <input type="text" id="searchInput" placeholder="Search company or symbol...">
+            </div>
+            <div class="input-group">
+                <select id="viewFilter" style="font-weight: 600; color: var(--primary);">
+                    <option value="all">View: All Companies</option>
+                    <option value="positive">View: Rev & Prof Positive</option>
+                    <option value="double_digit">View: Double Digit Growth (10%+)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <select id="sectorFilter">
+                    <option value="">Filter: All Sectors</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <select id="sortFilter">
+                    <option value="name">Sort: Alphabetical</option>
+                    <option value="revenue">Sort: Highest Revenue Growth</option>
+                    <option value="profit">Sort: Highest Profit Growth</option>
+                    <option value="change">Sort: Return Since Result</option>
+                </select>
+            </div>
+            <button class="btn-refresh" onclick="refreshAll()">Refresh</button>
+        </div>
+
+        <div id="companiesGrid" class="grid-container"></div>
+    </div>
+</div>
+
+<div id="detailView">
+    <div class="poster" id="poster">
+        <button class="back-btn" onclick="closeDetailView()"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+        
+        <div id="detailLoader" class="loading-overlay hidden"><i class="fas fa-circle-notch fa-spin" style="margin-right: 8px;"></i> Loading Details...</div>
+
+        <div class="poster-header">
+            <div class="meta-row">
+                <span class="quarter-badge" id="p-quarter">Q2 FY26</span>
+                <span style="font-size: 0.85rem; color: var(--text-secondary);">Results Dashboard</span>
+            </div>
+            <h1 id="p-name">Select a Company</h1>
+            <p class="tagline" id="p-tagline">...</p>
+        </div>
+
+        <div class="top-grid">
+            <div class="table-group">
+                <div class="section-header">
+                    <i class="fas fa-table section-icon"></i>
+                    <h2>Key Metrics Snapshot</h2>
+                </div>
+                
+                <div class="table-wrapper">
+                    <div class="table-title">Year-Over-Year (YoY)</div>
+                    <table class="metrics-table">
+                        <thead><tr><th>Metric</th><th>Prev Year</th><th>Current</th><th>Growth</th></tr></thead>
+                        <tbody id="p-yoy-table"></tbody>
+                    </table>
+                </div>
+
+                <div class="table-wrapper">
+                    <div class="table-title">Quarter-Over-Quarter (QoQ)</div>
+                    <table class="metrics-table">
+                        <thead><tr><th>Metric</th><th>Prev Qtr</th><th>Current</th><th>Growth</th></tr></thead>
+                        <tbody id="p-qoq-table"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="chart-column">
+                 <div class="section-header">
+                    <i class="fas fa-chart-bar section-icon"></i>
+                    <h2>Growth Trajectory</h2>
+                </div>
+                <div class="chart-container">
+                    <div style="text-align: center; margin-bottom: 15px; font-weight: 600; font-size:0.85rem; color:var(--text-tertiary); text-transform:uppercase;">YoY Growth %</div>
+                    <canvas id="growthChart"></canvas>
+                </div>
+
+                <div class="rating-box">
+                    <div class="rating-label">Analyst Rating</div>
+                    <div id="p-rating-value" class="rating-value">--</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mid-section-grid">
+            <div>
+                <div class="section-header">
+                    <i class="fas fa-stethoscope section-icon"></i>
+                    <h2>Diagnostic Highlights</h2>
+                </div>
+                <ul class="diag-list" id="p-diagnostics"></ul>
+            </div>
+
+            <div>
+                <div class="section-header">
+                    <i class="fas fa-percentage section-icon"></i>
+                    <h2>Margin Trend Analysis (YoY)</h2>
+                </div>
+                <div class="table-wrapper">
+                     <table class="metrics-table">
+                         <thead><tr><th>Margin</th><th>Prev Year</th><th>Current</th><th>Change</th></tr></thead>
+                         <tbody id="p-margin-table"></tbody>
+                     </table>
+                </div>
+            </div>
+        </div>
+
+        <div>
+             <div class="section-header" style="margin-top: 30px;">
+                <i class="fas fa-compass section-icon"></i>
+                <h2>Future Outlook</h2>
+            </div>
+            
+            <div class="sector-grid">
+                <div class="guidance-card card-tailwinds">
+                    <div class="g-header">
+                        <div class="g-icon-box"><i class="fas fa-wind"></i></div>
+                        <span class="g-title">Sector Tailwinds</span>
+                    </div>
+                    <div id="p-sector-tailwinds"></div>
+                </div>
+
+                <div class="guidance-card card-headwinds">
+                    <div class="g-header">
+                        <div class="g-icon-box"><i class="fas fa-triangle-exclamation"></i></div>
+                        <span class="g-title">Sector Headwinds</span>
+                    </div>
+                    <div id="p-sector-headwinds"></div>
+                </div>
+            </div>
+
+            <div class="guidance-card card-guidance">
+                <div class="g-header">
+                    <div class="g-icon-box"><i class="fas fa-bullseye"></i></div>
+                    <span class="g-title">Management Guidance</span>
+                </div>
+                <div id="p-guidance-list"></div>
+            </div>
+        </div>
+
+        <div class="poster-footer">
+            <span id="p-source"><i class="fas fa-file-pdf"></i> Source: Investor Presentation / Filings</span>
+            <span id="p-date"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- GLOBAL CONFIG ---
+    const CONFIG = {
+        sheetID: '12e5NUDJQXnyB2V27WynpgGw2Gwg4oxqefc8jVOyy3aM',
+        apiKey: 'AIzaSyBYXp1ILH81N2lo_oPn6mGvju0hpyWTHFI',
+        gridRange: 'Q2FY26!A1:K1001',      // For Code 1
+        detailRange: 'Q2FY26Test!A1:AZ1000' // For Code 2
+    };
+
+    // --- STATE ---
+    let state = {
+        gridData: [],       // Stores Code 1 data
+        filteredGrid: [],
+        detailData: [],     // Stores Code 2 data (fetched in background)
+        chartInstance: null
+    };
+
+    // --- INITIALIZATION ---
+    async function init() {
+        // Fetch Grid Data first (User sees this)
+        await loadGridData();
+        // Fetch Detail Data in background (Ready for click)
+        loadDetailData();
+        
+        // Listeners
+        document.getElementById('searchInput').addEventListener('input', updateGridUI);
+        document.getElementById('sectorFilter').addEventListener('change', updateGridUI);
+        document.getElementById('sortFilter').addEventListener('change', updateGridUI);
+        document.getElementById('viewFilter').addEventListener('change', updateGridUI);
+    }
+
+    function refreshAll() {
+        loadGridData();
+        loadDetailData();
+    }
+
+    // --- LOGIC 1: GRID VIEW (Code 1) ---
+    async function loadGridData() {
+        document.getElementById('companiesGrid').innerHTML = Array(6).fill('<div class="skeleton"></div>').join('');
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.sheetID}/values/${CONFIG.gridRange}?key=${CONFIG.apiKey}`;
+            const res = await fetch(url);
+            const data = await res.json();
+
+            if (data.values && data.values.length > 1) {
+                state.gridData = parseGridData(data.values);
+                state.filteredGrid = [...state.gridData];
+                populateSectors();
+                updateGridUI();
+                document.getElementById('lastUpdated').innerText = `Live: ${new Date().toLocaleTimeString()}`;
+            } else {
+                document.getElementById('companiesGrid').innerHTML = `<div class="no-data">No data returned.</div>`;
+            }
+        } catch (e) {
+            console.error("Grid Fetch Error:", e);
+            document.getElementById('companiesGrid').innerHTML = `<div class="no-data">Error loading data.</div>`;
+        }
+    }
+
+    function parseGridData(rows) {
+        return rows.slice(1).map(row => ({
+            name: row[0] || 'Unknown',
+            symbol: row[1] || '-',
+            mCap: row[2] || '0',
+            revGrowth: parseFloat(row[3]) || 0,
+            profGrowth: parseFloat(row[4]) || 0,
+            margin: row[5] || 'Stable',
+            sector: row[6] || 'Other',
+            valuation: row[7] || 'Unknown',
+            fairValue: row[8] || 'N/A',
+            priceChange: row[9] || '0%',
+            cmp: row[10] || '0'
+        })).filter(c => c.name !== 'Unknown');
+    }
+
+    function updateGridUI() {
+        applyFilters();
+        renderStats();
+        renderGrid();
+    }
+
+    function renderStats() {
+        const total = state.gridData.length;
+        if(total === 0) return;
+        const avgRev = (state.gridData.reduce((a, b) => a + b.revGrowth, 0) / total).toFixed(1);
+        const avgProf = (state.gridData.reduce((a, b) => a + b.profGrowth, 0) / total).toFixed(1);
+        const doubleDigitCount = state.gridData.filter(c => c.revGrowth >= 10 && c.profGrowth >= 10).length;
+
+        document.getElementById('statsBar').innerHTML = `
+            <div class="stat-card">
+                <div class="stat-label">Coverage</div>
+                <div class="stat-value">${total}</div>
+                <div class="stat-sub">Stocks Tracked</div>
+            </div>
+            <div class="stat-card" style="border-color: var(--primary-light);">
+                <div class="stat-label" style="color: var(--primary);">High Growth Club</div>
+                <div class="stat-value highlight-text">${doubleDigitCount}</div>
+                <div class="stat-sub">Double Digit (Rev & Prof)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Avg Profit</div>
+                <div class="stat-value ${avgProf >= 0 ? 'pos-text' : 'neg-text'}">${avgProf}%</div>
+                <div class="stat-sub">Portfolio Profit Growth</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Avg Revenue</div>
+                <div class="stat-value ${avgRev >= 0 ? 'pos-text' : 'neg-text'}">${avgRev}%</div>
+                <div class="stat-sub">Portfolio Revenue Growth</div>
+            </div>
+        `;
+    }
+
+    function renderGrid() {
+        const grid = document.getElementById('companiesGrid');
+        if (state.filteredGrid.length === 0) {
+            grid.innerHTML = `<div class="no-data" style="grid-column: 1/-1; text-align:center; padding:40px;">No results found.</div>`;
+            return;
+        }
+
+        // ADDED ONCLICK EVENT TO CARD
+        grid.innerHTML = state.filteredGrid.map(c => `
+            <div class="company-card" onclick="openDetailView('${c.name.replace(/'/g, "\\'")}')">
+                <div class="c-header">
+                    <div>
+                        <div class="c-name">${c.name}</div>
+                        <div class="c-meta">${c.sector} • M.Cap: ${c.mCap}</div>
+                    </div>
+                    <div class="c-symbol">${c.symbol}</div>
+                </div>
+                <div class="c-body">
+                    <div class="price-strip">
+                        <div>
+                            <div class="m-label">Current Price</div>
+                            <div class="cmp-val">₹${c.cmp}</div>
+                        </div>
+                        <div style="text-align:right">
+                            <div class="m-label">From Result Day</div>
+                            <div class="growth-pill ${parseFloat(c.priceChange) >= 0 ? 'pos' : 'neg'}">${c.priceChange}</div>
+                        </div>
+                    </div>
+                    <div class="metric-grid">
+                        <div class="m-box">
+                            <div class="m-label">Revenue YoY</div>
+                            <div class="m-val ${c.revGrowth >= 0 ? 'pos' : 'neg'}">${c.revGrowth}%</div>
+                        </div>
+                        <div class="m-box">
+                            <div class="m-label">Profit YoY</div>
+                            <div class="m-val ${c.profGrowth >= 0 ? 'pos' : 'neg'}">${c.profGrowth}%</div>
+                        </div>
+                    </div>
+                    <div class="m-box" style="margin-bottom:0">
+                        <div class="m-label">Margin Outlook</div>
+                        <div class="m-val" style="font-size:0.85rem">${c.margin}</div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function populateSectors() {
+        const select = document.getElementById('sectorFilter');
+        if (select.options.length > 1) return;
+        const sectors = [...new Set(state.gridData.map(c => c.sector))].sort();
+        sectors.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s; opt.innerText = s;
+            select.appendChild(opt);
+        });
+    }
+
+    function applyFilters() {
+        const search = document.getElementById('searchInput').value.toLowerCase();
+        const sector = document.getElementById('sectorFilter').value;
+        const sort = document.getElementById('sortFilter').value;
+        const view = document.getElementById('viewFilter').value;
+
+        let result = state.gridData.filter(c => 
+            (c.name.toLowerCase().includes(search) || c.symbol.toLowerCase().includes(search)) &&
+            (sector === '' || c.sector === sector)
+        );
+
+        if (view === 'positive') {
+            result = result.filter(c => c.revGrowth > 0 && c.profGrowth > 0);
+        } else if (view === 'double_digit') {
+            result = result.filter(c => c.revGrowth >= 10 && c.profGrowth >= 10);
+        }
+
+        if (sort === 'revenue') result.sort((a, b) => b.revGrowth - a.revGrowth);
+        else if (sort === 'profit') result.sort((a, b) => b.profGrowth - a.profGrowth);
+        else if (sort === 'change') result.sort((a, b) => parseFloat(b.priceChange) - parseFloat(a.priceChange));
+        else result.sort((a, b) => a.name.localeCompare(b.name));
+
+        state.filteredGrid = result;
+    }
+
+    // --- LOGIC 2: DETAIL VIEW (Code 2) ---
+    async function loadDetailData() {
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.sheetID}/values/${CONFIG.detailRange}?key=${CONFIG.apiKey}`;
+            const res = await fetch(url);
+            const json = await res.json();
+            if (json.values && json.values.length > 0) {
+                state.detailData = processDetailData(json.values);
+            }
+        } catch (error) {
+            console.error("Detail Fetch Error:", error);
+        }
+    }
+
+    function processDetailData(rows) {
+        const headers = rows[0].map(h => h.trim());
+        const dataRows = rows.slice(1);
+        const getVal = (row, headerName) => {
+            const index = headers.indexOf(headerName);
+            return (index === -1) ? '' : (row[index] || '');
+        };
+        const splitText = (text) => (!text) ? [] : text.split(/[|•\n]+/).map(t => t.trim()).filter(t => t.length > 0);
+
+        return dataRows.map(row => {
+            if (!getVal(row, 'id')) return null;
+            return {
+                id: getVal(row, 'id'),
+                name: getVal(row, 'Company_Name'),
+                quarter: getVal(row, 'Quarter'),
+                tagline: getVal(row, 'Tagline'),
+                metrics: {
+                    yoy: [
+                        { label: 'Sales', prev: getVal(row, 'Sales_Pre_Y'), val: getVal(row, 'Sales_Current'), growth: parseFloat(getVal(row, 'Sales_YoY')) },
+                        { label: 'Operating Profit', prev: getVal(row, 'Operating_Profit_Pre_Y'), val: getVal(row, 'Operating_Profit_Current'), growth: parseFloat(getVal(row, 'Operating_Profit_YoY')) },
+                        { label: 'EBITDA', prev: getVal(row, 'EBITDA_Pre_Y'), val: getVal(row, 'EBITDA_Current'), growth: parseFloat(getVal(row, 'EBITDA_YoY')) },
+                        { label: 'Net Profit', prev: getVal(row, 'Profit_Prev_Y'), val: getVal(row, 'Profit_Current'), growth: parseFloat(getVal(row, 'Profit_YoY')) },
+                        { label: 'EPS', prev: getVal(row, 'EPS_Pre_Y'), val: getVal(row, 'EPS_Current'), growth: parseFloat(getVal(row, 'EPS_YoY')) }
+                    ],
+                    qoq: [
+                        { label: 'Sales', prev: getVal(row, 'Sales_Pre_Q'), val: getVal(row, 'Sales_Current'), growth: parseFloat(getVal(row, 'Sales_QoQ')) },
+                        { label: 'Operating Profit', prev: getVal(row, 'Operating_Profit_Pre_Q'), val: getVal(row, 'Operating_Profit_Current'), growth: parseFloat(getVal(row, 'Operating_Profit_QoQ')) },
+                        { label: 'EBITDA', prev: getVal(row, 'EBITDA_Pre_Q'), val: getVal(row, 'EBITDA_Current'), growth: parseFloat(getVal(row, 'EBITDA_QoQ')) },
+                        { label: 'Net Profit', prev: getVal(row, 'Profit_Prev_Q'), val: getVal(row, 'Profit_Current'), growth: parseFloat(getVal(row, 'Profit_QoQ')) },
+                        { label: 'EPS', prev: getVal(row, 'EPS_Pre_Q'), val: getVal(row, 'EPS_Current'), growth: parseFloat(getVal(row, 'EPS_QoQ')) }
+                    ]
+                },
+                diagnostics: splitText(getVal(row, 'Diagnostics')),
+                margins: [
+                    { label: 'EBITDA Margin', prior: getVal(row, 'EBITDA_Margin_Pre_Y'), current: getVal(row, 'EBITDA_Margin'), change: getVal(row, 'EBITDA_Margin_YoY'), pos: !getVal(row, 'EBITDA_Margin_YoY').includes('-') },
+                    { label: 'OPM', prior: getVal(row, 'OPM_Pre_Y'), current: getVal(row, 'OPM'), change: getVal(row, 'OPM_YoY'), pos: !getVal(row, 'OPM_YoY').includes('-') },
+                    { label: 'PAT Margin', prior: getVal(row, 'PAT_Margin_Pre_Y'), current: getVal(row, 'PAT_Margin'), change: getVal(row, 'PAT_Margin_YoY'), pos: !getVal(row, 'PAT_Margin_YoY').includes('-') }
+                ],
+                sectorTailwinds: splitText(getVal(row, 'Sector_Tailwinds')),
+                sectorHeadwinds: splitText(getVal(row, 'Sector_Headwinds')),
+                guidance: splitText(getVal(row, 'Guidance')),
+                rating: getVal(row, 'Rating')
+            };
+        }).filter(item => item !== null);
+    }
+
+    // --- VIEW SWITCHING LOGIC ---
+    function openDetailView(companyName) {
+        // 1. Toggle Views
+        document.getElementById('dashboardView').style.display = 'none';
+        document.getElementById('detailView').style.display = 'flex';
+        document.getElementById('detailLoader').classList.remove('hidden');
+        window.scrollTo(0, 0);
+
+        // 2. Find Data
+        // Simple fuzzy match or exact match on name
+        const detail = state.detailData.find(c => 
+            c.name.toLowerCase().trim() === companyName.toLowerCase().trim() ||
+            c.name.toLowerCase().includes(companyName.toLowerCase())
+        );
+
+        if (detail) {
+            renderDetailPoster(detail);
+        } else {
+            // If data hasn't loaded yet or company not found in detail sheet
+            setTimeout(() => {
+                const retryDetail = state.detailData.find(c => c.name.toLowerCase().includes(companyName.toLowerCase().split(' ')[0]));
+                if(retryDetail) renderDetailPoster(retryDetail);
+                else {
+                    alert('Detailed data for ' + companyName + ' is not yet available in the backend sheet.');
+                    closeDetailView();
+                }
+            }, 1000);
+        }
+    }
+
+    function closeDetailView() {
+        document.getElementById('dashboardView').style.display = 'block';
+        document.getElementById('detailView').style.display = 'none';
+    }
+
+    function renderDetailPoster(data) {
+        document.getElementById('p-name').textContent = data.name;
+        document.getElementById('p-quarter').textContent = data.quarter || 'Q2 FY26';
+        document.getElementById('p-tagline').textContent = data.tagline ? `"${data.tagline}"` : "";
+        document.getElementById('p-date').textContent = "Generated: " + new Date().toLocaleDateString();
+        document.getElementById('p-rating-value').textContent = data.rating || 'N/A';
+
+        const createRow = (m) => {
+            const isNa = isNaN(m.growth);
+            const isPos = m.growth >= 0;
+            const arrow = isPos ? '<i class="fas fa-caret-up"></i>' : '<i class="fas fa-caret-down"></i>';
+            const badgeClass = isPos ? 'pos' : 'neg';
+            const growthDisplay = isNa ? '-' : `<span class="badge ${badgeClass}">${arrow} ${Math.abs(m.growth)}%</span>`;
+            return `<tr><td>${m.label}</td><td class="prev-val">${m.prev || '-'}</td><td>${m.val || '-'}</td><td>${growthDisplay}</td></tr>`;
+        };
+
+        document.getElementById('p-yoy-table').innerHTML = data.metrics.yoy.map(createRow).join('');
+        document.getElementById('p-qoq-table').innerHTML = data.metrics.qoq.map(createRow).join('');
+        document.getElementById('p-diagnostics').innerHTML = data.diagnostics.length ? data.diagnostics.map(d => `<li>${d}</li>`).join('') : '<li>No highlights available.</li>';
+        
+        document.getElementById('p-margin-table').innerHTML = data.margins.map(m => {
+            const badgeClass = m.pos ? 'pos' : 'neg';
+            return `<tr><td>${m.label}</td><td class="prev-val">${m.prior || '-'}</td><td>${m.current || '-'}</td><td><span class="badge ${badgeClass}">${m.change || '-'}</span></td></tr>`;
+        }).join('');
+
+        const renderList = (arr, icon) => arr.length ? arr.map(t => `<div class="list-item"><i class="fas ${icon}"></i> <span>${t}</span></div>`).join('') : "<span style='color:var(--text-secondary); font-style:italic;'>No data provided.</span>";
+        
+        document.getElementById('p-sector-tailwinds').innerHTML = renderList(data.sectorTailwinds, 'fa-circle');
+        document.getElementById('p-sector-headwinds').innerHTML = renderList(data.sectorHeadwinds, 'fa-circle');
+        document.getElementById('p-guidance-list').innerHTML = renderList(data.guidance, 'fa-play');
+
+        renderChart(data);
+        document.getElementById('detailLoader').classList.add('hidden');
+    }
+
+    function renderChart(data) {
+        const ctx = document.getElementById('growthChart').getContext('2d');
+        const chartMap = [
+            { key: 'Sales', display: 'Revenue' },
+            { key: 'Operating Profit', display: 'OP' },
+            { key: 'EBITDA', display: 'EBITDA' },
+            { key: 'Net Profit', display: 'Profit' }
+        ];
+
+        const labels = [];
+        const values = [];
+
+        chartMap.forEach(item => {
+            const metric = data.metrics.yoy.find(m => m.label === item.key);
+            if (metric) {
+                labels.push(item.display);
+                values.push(metric.growth);
+            }
+        });
+
+        if (state.chartInstance) state.chartInstance.destroy();
+
+        const gradPos = ctx.createLinearGradient(0, 0, 0, 400);
+        gradPos.addColorStop(0, 'rgba(59, 130, 246, 0.8)');
+        gradPos.addColorStop(1, 'rgba(59, 130, 246, 0.1)');
+        
+        const gradNeg = ctx.createLinearGradient(0, 0, 0, 400);
+        gradNeg.addColorStop(0, 'rgba(239, 68, 68, 0.8)');
+        gradNeg.addColorStop(1, 'rgba(239, 68, 68, 0.1)');
+
+        state.chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'YoY Growth %',
+                    data: values,
+                    backgroundColor: values.map(v => v >= 0 ? gradPos : gradNeg),
+                    borderColor: values.map(v => v >= 0 ? '#2563eb' : '#b91c1c'),
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    barPercentage: 0.5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { 
+                    y: { beginAtZero: true, grid: { color: '#e2e8f0' }, ticks: { font: {size: 11}, color: '#64748b' } }, 
+                    x: { grid: { display: false }, ticks: { font: {size: 11, weight: '600'}, color: '#1e293b' } } 
+                }
+            }
+        });
+    }
+
+    // Start App
+    init();
+</script>
+
+</body>
+</html>
