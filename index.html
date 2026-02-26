@@ -89,7 +89,7 @@
             height: 100%;
             display: flex;
             flex-direction: column;
-            cursor: pointer; /* Makes it obvious it's clickable */
+            cursor: pointer; 
         }
 
         .stock-card:hover {
@@ -129,6 +129,7 @@
         .data-value { font-size: 1.1rem; font-weight: 700; color: var(--text-main); }
         .data-value.trend-up { color: var(--success); }
         .data-value.trend-neutral { color: var(--primary); }
+        .trend-down { color: #ef4444; }
 
         /* Badge Styles */
         .badge-sector {
@@ -163,7 +164,7 @@
             vertical-align: middle;
             font-size: 0.95rem;
         }
-        .table-row-hover { cursor: pointer; } /* Added pointer for table rows */
+        .table-row-hover { cursor: pointer; } 
         .table-row-hover:hover { background-color: #f8fafc; }
 
         /* Loader */
@@ -235,6 +236,9 @@
                 <button class="nav-link" id="btn-tab-great" data-bs-toggle="pill" data-bs-target="#tab-great">🌟 Great Picks</button>
             </li>
             <li class="nav-item" role="presentation">
+                <button class="nav-link" id="btn-tab-sector" data-bs-toggle="pill" data-bs-target="#tab-sector">📊 Sector Analysis</button>
+            </li>
+            <li class="nav-item" role="presentation">
                 <button class="nav-link" id="btn-tab-all" data-bs-toggle="pill" data-bs-target="#tab-all">📋 Full Data Table</button>
             </li>
         </ul>
@@ -253,6 +257,24 @@
                     <small><strong>Criteria:</strong> Rev 10-20% &nbsp;|&nbsp; Profit 10-20% &nbsp;|&nbsp; Margin = Expansion</small>
                 </div>
                 <div class="row g-4" id="container-great"></div>
+            </div>
+
+            <div class="tab-pane fade" id="tab-sector">
+                <div class="bg-white rounded-3 shadow-sm border overflow-hidden">
+                    <div class="table-responsive">
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th>Sector</th>
+                                    <th>Total Stocks</th>
+                                    <th>Avg Revenue YoY</th>
+                                    <th>Avg Profit YoY</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body-sector"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <div class="tab-pane fade" id="tab-all">
@@ -297,7 +319,7 @@
     // ==========================================
     const SHEET_ID = '12e5NUDJQXnyB2V27WynpgGw2Gwg4oxqefc8jVOyy3aM';
     const API_KEY = 'AIzaSyBYXp1ILH81N2lo_oPn6mGvju0hpyWTHFI';
-    const RANGE = 'CurrentQ!A1:N1001'; 
+    const RANGE = 'Q2FY26!A1:N1001'; 
     // ==========================================
 
     let GLOBAL_DATA = [];
@@ -313,7 +335,6 @@
     
     // --- Data Fetching by Column NAME ---
     async function init() {
-        // Initialize Modal
         profileModalInstance = new bootstrap.Modal(document.getElementById('profileModal'));
 
         try {
@@ -370,14 +391,12 @@
         const stock = GLOBAL_DATA.find(s => s.symbol === symbol);
         if(!stock) return;
 
-        // Determine margin color for styling
         let marginColor = "text-muted";
         let mLC = stock.marginExp.toLowerCase();
         if(mLC.includes('expansion')) marginColor = "text-success fw-bold";
         if(mLC.includes('contraction')) marginColor = "text-danger fw-bold";
         if(mLC.includes('stable')) marginColor = "text-primary fw-bold";
 
-        // Inject content into modal body
         document.getElementById('profileModalBody').innerHTML = `
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start mb-4 gap-3">
                 <div>
@@ -399,13 +418,13 @@
                 <div class="col-md-4">
                     <div class="p-3 bg-light rounded-3 border h-100">
                         <div class="data-label text-muted mb-2">Revenue Growth (YoY)</div>
-                        <div class="fs-3 fw-bold text-primary">${stock.revStr}</div>
+                        <div class="fs-3 fw-bold ${stock.rev >= 0 ? 'text-primary' : 'trend-down'}">${stock.revStr}</div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="p-3 bg-light rounded-3 border h-100">
                         <div class="data-label text-muted mb-2">Profit Growth (YoY)</div>
-                        <div class="fs-3 fw-bold text-success">${stock.profitStr}</div>
+                        <div class="fs-3 fw-bold ${stock.profit >= 0 ? 'text-success' : 'trend-down'}">${stock.profitStr}</div>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -415,10 +434,6 @@
                     </div>
                 </div>
             </div>
-            
-            <div class="alert alert-secondary border-0 bg-secondary bg-opacity-10 text-secondary-emphasis mb-0">
-                <small><strong>Note:</strong> Data is synchronized from Q2 FY26 Earnings Sheet. External links default to the National Stock Exchange (NSE).</small>
-            </div>
         `;
 
         profileModalInstance.show();
@@ -427,7 +442,6 @@
     // --- Sorting ---
     function handleSort() {
         const type = document.getElementById('sort-select').value;
-        
         if (type === 'sector') {
             GLOBAL_DATA.sort((a, b) => a.sector.localeCompare(b.sector));
         } else if (type === 'profit') {
@@ -464,6 +478,52 @@
         drawCards(excellent, 'container-excellent', 'bg-exc');
         drawCards(great, 'container-great', 'bg-great');
         drawTable(GLOBAL_DATA);
+        drawSectorAnalysis(GLOBAL_DATA);
+    }
+
+    // --- Sector Analysis Rendering ---
+    function drawSectorAnalysis(data) {
+        const sectorMap = {};
+
+        // Aggregate data by sector
+        data.forEach(s => {
+            const sec = s.sector || 'Unknown';
+            if (!sectorMap[sec]) {
+                sectorMap[sec] = { count: 0, totalRev: 0, totalProf: 0 };
+            }
+            sectorMap[sec].count += 1;
+            sectorMap[sec].totalRev += s.rev;
+            sectorMap[sec].totalProf += s.profit;
+        });
+
+        // Convert map to array and calculate averages
+        const sectorStats = Object.keys(sectorMap).map(sec => {
+            const stats = sectorMap[sec];
+            return {
+                sector: sec,
+                count: stats.count,
+                avgRev: (stats.totalRev / stats.count).toFixed(2),
+                avgProf: (stats.totalProf / stats.count).toFixed(2)
+            };
+        });
+
+        // Sort alphabetically by sector
+        sectorStats.sort((a, b) => a.sector.localeCompare(b.sector));
+
+        const tbody = document.getElementById('table-body-sector');
+        tbody.innerHTML = sectorStats.map(s => {
+            const revColor = s.avgRev >= 0 ? 'text-primary' : 'trend-down';
+            const profColor = s.avgProf >= 0 ? 'text-success' : 'trend-down';
+
+            return `
+            <tr>
+                <td><span class="badge-sector fs-6 px-3 py-2">${s.sector}</span></td>
+                <td class="fw-bold text-muted fs-5 align-middle">${s.count}</td>
+                <td class="${revColor} fw-semibold fs-5 align-middle">${s.avgRev}%</td>
+                <td class="${profColor} fw-bold fs-5 align-middle">${s.avgProf}%</td>
+            </tr>
+            `;
+        }).join('');
     }
 
     function drawCards(list, targetId, dotClass) {
@@ -489,11 +549,11 @@
                         <div class="row">
                             <div class="col-6">
                                 <div class="data-label">Revenue Growth</div>
-                                <div class="data-value trend-neutral">${s.revStr}</div>
+                                <div class="data-value ${s.rev >= 0 ? 'trend-neutral' : 'trend-down'}">${s.revStr}</div>
                             </div>
                             <div class="col-6 text-end">
                                 <div class="data-label">Profit Growth</div>
-                                <div class="data-value trend-up">${s.profitStr}</div>
+                                <div class="data-value ${s.profit >= 0 ? 'trend-up' : 'trend-down'}">${s.profitStr}</div>
                             </div>
                         </div>
                     </div>
@@ -518,6 +578,9 @@
             if(mLC.includes('contraction')) marginColor = "text-danger fw-bold";
             if(mLC.includes('stable')) marginColor = "text-primary fw-bold";
 
+            const revColor = s.rev >= 0 ? 'text-primary' : 'trend-down';
+            const profColor = s.profit >= 0 ? 'text-success' : 'trend-down';
+
             return `
             <tr class="table-row-hover" onclick="openProfile('${s.symbol}')">
                 <td>
@@ -525,8 +588,8 @@
                     <div class="small text-muted">${s.symbol}</div>
                 </td>
                 <td><span class="badge-sector">${s.sector}</span></td>
-                <td class="text-primary fw-semibold">${s.revStr}</td>
-                <td class="text-success fw-bold">${s.profitStr}</td>
+                <td class="${revColor} fw-semibold">${s.revStr}</td>
+                <td class="${profColor} fw-bold">${s.profitStr}</td>
                 <td class="${marginColor} small">${s.marginExp}</td>
             </tr>
             `;
@@ -538,4 +601,3 @@
 </script>
 </body>
 </html>
-
